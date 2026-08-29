@@ -1,0 +1,37 @@
+name: Daily prospect scan
+
+on:
+  schedule:
+    # 7h00 heure de Paris (5h/6h UTC selon heure d'été/hiver) - ajuste si besoin
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}   # permet de le lancer manuellement depuis GitHub
+
+permissions:
+  contents: write   # nécessaire pour committer seen_pages.json
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Run prospect bot
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python prospect_bot.py
+
+      - name: Commit seen_pages.json
+        run: |
+          git config user.name "prospect-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add seen_pages.json
+          git diff --staged --quiet || git commit -m "update seen prospects"
+          git push
