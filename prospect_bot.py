@@ -297,17 +297,24 @@ budget serré. Il a peur de se faire arnaquer par une agence chère et génériq
 - Le prospect a été repéré parce qu'il tourne actuellement une pub Meta (donc il a \
 un budget ads) mais avec une créa faible : image statique, pas de vidéo, pas d'UGC.
 
-Structure obligatoire en 8 blocs (contenu en français ici, sortie en anglais) — CHAQUE \
+Structure obligatoire en 9 blocs (contenu en français ici, sortie en anglais) — CHAQUE \
 bloc numéroté ci-dessous correspond à UN paragraphe séparé par un saut de ligne double \
 dans le JSON final, jamais fusionné avec le bloc suivant :
 0. Une courte formule d'introduction avant l'accroche (ex : "Hey," ou "Hi,"), jamais \
 "Dear Sir/Madam" ni de formalisme excessif. Son propre bloc, séparé de l'accroche.
-1. Accroche : la première vraie phrase capte l'attention en ciblant un problème précis \
-et concret ancré dans LEUR pub actuelle (pas une question générique de type "want to \
-double your sales?").
-2. Problème concret : nomme le vrai problème que révèle leur créa actuelle. Le type de \
-créa dominant (IMAGE, MEME ou MIX) t'est donné en amont du texte de la pub, adapte \
-l'angle du problème en conséquence, ne réutilise jamais le même angle pour les trois :
+1. Ouverture contextuelle + compliment bref : commence par comment tu es tombé sur eux \
+de façon naturelle et jamais ciblée ou intrusive (ex : "I've been checking out apps \
+running Meta ads lately, and yours caught my eye" ou variante proche) — jamais une \
+observation trop précise qui donne l'impression d'avoir été traqué. Enchaîne avec une \
+reconnaissance sincère et courte du produit (une phrase, pas plus), sans en faire trop \
+ni sonner comme un compliment creux ("great value prop, love it"). Ce bloc ne mentionne \
+PAS encore le problème créa : c'est une ouverture, pas une critique.
+2. Transition + problème concret : ouvre par une formule de transition douce qui \
+signale un point à soulever sans être frontal (ex : "One thing I noticed though" ou \
+variante naturelle proche), puis nomme le vrai problème que révèle leur créa actuelle. \
+Le type de créa dominant (IMAGE, MEME ou MIX) t'est donné en amont du texte de la pub, \
+adapte l'angle du problème en conséquence, ne réutilise jamais le même angle pour les \
+trois :
    - IMAGE : photo ou capture d'écran statique, rien ne bouge, impossible de montrer \
 le produit en action ni de créer de la confiance par une vraie personne qui l'utilise.
    - MEME : format template humoristique, ça capte peut-être l'œil une fois mais ça \
@@ -341,10 +348,13 @@ que leur créa actuelle sur 2 semaines, remboursement). Formule directe, sans aj
 "no questions asked" ni formule de renforcement similaire, la garantie parle d'elle-même.
 6. Contrepartie : uniquement la demande en échange (le droit de partager les vrais \
 résultats ensuite). Bloc séparé de la garantie, jamais fusionné.
-7. Appel à l'action + signature : une seule action claire et précise qui pousse à \
-répondre à cet email pour dire s'ils veulent tenter l'offre, jamais à proposer un call \
-ou un rendez-vous, jamais vague ("feel free to reach out"). La signature ("Thomas, \
-Tanto Lab") suit, dans le même bloc ou son propre bloc.
+7. Appel à l'action + signature : une seule question ouverte, facile à répondre par \
+oui/non, JAMAIS une formulation en ordre ou en impératif ("Reply and let me know if \
+you want to try it out" est strictement interdit — ça sonne comme une instruction, pas \
+une invitation). Formule-la toujours comme une vraie question, courte, du type "Want \
+to give it a shot?" ou "Worth a try?" ou variante naturelle proche, jamais à proposer \
+un call ou un rendez-vous, jamais vague ("feel free to reach out"). La signature \
+("Thomas, Tanto Lab") suit, dans le même bloc ou son propre bloc.
 
 Ton et style (règles strictes, sans exception, appliquées au texte ANGLAIS généré) :
 - Direct, sans jargon d'agence ("boost your engagement with our 360 expertise")
@@ -366,14 +376,15 @@ tais-toi, mais reste chaleureux dans le ton, pas juste dans le vocabulaire
 - Casse les énumérations de trois éléments quand deux suffisent
 - Varie la longueur des phrases et des paragraphes, alterne très court et plus développé
 - Mots bannis : "leverage", "unlock", "seamless", "elevate", "game-changer"
-- Pour le CTA (point 4) : INTERDIT de proposer un call, un rendez-vous ou un créneau, \
-sous quelque forme que ce soit ("quick call", "jump on a call", "worth a chat", "hop on \
-a 10-min call"...). Le CTA pousse uniquement à répondre à l'email. Varie la formulation \
-à chaque email pour ne jamais répéter le même patron : par exemple demander si un \
-format donné les intéresse, proposer d'envoyer 2-3 exemples similaires en réponse, ou \
-demander une info précise sur leur projet. Une phrase, jamais plus.
+- Pour le CTA (point 7) : toujours une question ouverte, jamais un ordre ou une \
+instruction ("Reply and let me know..." interdit). INTERDIT de proposer un call, un \
+rendez-vous ou un créneau, sous quelque forme que ce soit ("quick call", "jump on a \
+call", "worth a chat", "hop on a 10-min call"...). Varie la formulation à chaque email \
+pour ne jamais répéter le même patron : par exemple demander si un format donné les \
+intéresse, proposer d'envoyer 2-3 exemples similaires en réponse, ou demander une info \
+précise sur leur projet. Une phrase, jamais plus.
 - Court : 110-150 mots pour le corps (intro incluse)
-- Format obligatoire du champ "body" : chacun des 8 blocs de la structure ci-dessus \
+- Format obligatoire du champ "body" : chacun des 9 blocs de la structure ci-dessus \
 (0, 1, 2, 3, 4, 5, 6, 7) est son propre paragraphe, séparé du suivant par un saut de \
 ligne double ("\\n\\n" dans le JSON), jamais fusionné avec un autre, jamais un pavé de \
 texte compact. Chaque bloc reste court (1-2 phrases), jamais un paragraphe de 3+ \
