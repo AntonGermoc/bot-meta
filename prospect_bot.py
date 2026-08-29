@@ -417,7 +417,9 @@ def draft_email(page_name: str, ad_bodies: list[str], media_type: str) -> dict |
             },
             timeout=30,
         )
-        resp.raise_for_status()
+        if resp.status_code != 200:
+            print(f"Erreur API Anthropic ({resp.status_code}) pour '{page_name}': {resp.text[:500]}", file=sys.stderr)
+            return None
         data = resp.json()
         text = "".join(
             block.get("text", "") for block in data.get("content", []) if block.get("type") == "text"
