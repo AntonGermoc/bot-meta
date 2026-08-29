@@ -493,18 +493,14 @@ def post_to_discord(prospects: list[tuple[str, list[dict], dict | None, str, str
         ]
 
         if contact_email:
-            fields.append({"name": "✅ Email trouvé", "value": contact_email, "inline": False})
+            fields.append({"name": "✅ Email trouvé", "value": f"\n{contact_email}", "inline": False})
         elif website:
-            fields.append({"name": "🌐 Site web", "value": website, "inline": False})
+            fields.append({"name": "🌐 Site web", "value": f"\n{website}", "inline": False})
         else:
-            fields.append({"name": "🌐 Site web", "value": "Non trouvé", "inline": False})
+            fields.append({"name": "🌐 Site web", "value": "\nNon trouvé", "inline": False})
 
         if email:
-            fields.append({"name": "🔎 Problème détecté", "value": email.get("problem", "?")[:1024], "inline": False})
-            fields.append({"name": "📧 Subject", "value": email.get("subject", "?")[:1024], "inline": False})
-            fields.append({"name": "📧 Body", "value": email.get("body", "?")[:1024], "inline": False})
-        else:
-            fields.append({"name": "📧 Email", "value": "Non généré (ANTHROPIC_API_KEY manquant ou erreur, voir logs).", "inline": False})
+            fields.append({"name": "🔎 Problème détecté", "value": f"\n{email.get('problem', '?')[:1024]}", "inline": False})
 
         embed = {
             "title": page_name,
@@ -513,6 +509,25 @@ def post_to_discord(prospects: list[tuple[str, list[dict], dict | None, str, str
         }
         requests.post(DISCORD_WEBHOOK_URL, json={"username": BOT_NAME, "embeds": [embed]}, timeout=15)
         time.sleep(1)  # éviter le rate limit du webhook Discord
+
+        # L'email part dans un message à part (texte brut, pas un embed) : les
+        # sauts de ligne y respirent bien mieux que dans un champ d'embed compact.
+        # Chaque titre (Subject / Body) est suivi d'une ligne vide avant son contenu.
+        if email:
+            subject = email.get("subject", "?")
+            body = email.get("body", "?")
+            email_message = f"📧 **Subject**\n\n{subject}\n\n📧 **Body**\n\n{body}"
+            if len(email_message) > 1990:
+                email_message = email_message[:1980] + "\n…(coupé)"
+            requests.post(DISCORD_WEBHOOK_URL, json={"username": BOT_NAME, "content": email_message}, timeout=15)
+            time.sleep(1)
+        else:
+            requests.post(
+                DISCORD_WEBHOOK_URL,
+                json={"username": BOT_NAME, "content": "📧 Email non généré (ANTHROPIC_API_KEY manquant ou erreur, voir logs)."},
+                timeout=15,
+            )
+            time.sleep(1)
 
 
 # ---------------------------------------------------------------------------
