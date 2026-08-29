@@ -28,6 +28,10 @@ import requests
 META_ACCESS_TOKEN = os.environ.get("META_ACCESS_TOKEN")
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+# Nécessaire uniquement si ta clé API est de type "Personnel"/identity-linked (Console
+# Anthropic) plutôt qu'une clé classique de workspace. Trouvable dans les paramètres
+# du workspace sur console.anthropic.com (identifiant du type "wrkspc_...").
+ANTHROPIC_WORKSPACE_ID = os.environ.get("ANTHROPIC_WORKSPACE_ID")
 
 ANTHROPIC_MODEL = "claude-sonnet-5"
 
@@ -402,16 +406,20 @@ def draft_email(page_name: str, ad_bodies: list[str], media_type: str) -> dict |
     )
 
     try:
+        headers = {
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+        if ANTHROPIC_WORKSPACE_ID:
+            headers["anthropic-workspace-id"] = ANTHROPIC_WORKSPACE_ID
+
         resp = requests.post(
             "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
+            headers=headers,
             json={
                 "model": ANTHROPIC_MODEL,
-                "max_tokens": 500,
+                "max_tokens": 800,
                 "system": EMAIL_SYSTEM_PROMPT,
                 "messages": [{"role": "user", "content": user_prompt}],
             },
@@ -425,6 +433,9 @@ def draft_email(page_name: str, ad_bodies: list[str], media_type: str) -> dict |
             block.get("text", "") for block in data.get("content", []) if block.get("type") == "text"
         )
         text = text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        if not text:
+            print(f"Réponse Anthropic vide pour '{page_name}'. stop_reason={data.get('stop_reason')}, réponse brute (tronquée): {json.dumps(data)[:800]}", file=sys.stderr)
+            return None
         return json.loads(text)
     except Exception as e:  # noqa: BLE001 - on ne veut pas planter tout le run pour un email raté
         print(f"Erreur génération email pour '{page_name}': {e}", file=sys.stderr)
