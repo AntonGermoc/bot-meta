@@ -419,7 +419,8 @@ def draft_email(page_name: str, ad_bodies: list[str], media_type: str) -> dict |
             headers=headers,
             json={
                 "model": ANTHROPIC_MODEL,
-                "max_tokens": 800,
+                "max_tokens": 1500,
+                "thinking": {"type": "disabled"},
                 "system": EMAIL_SYSTEM_PROMPT,
                 "messages": [{"role": "user", "content": user_prompt}],
             },
