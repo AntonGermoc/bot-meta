@@ -31,6 +31,20 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 
 ANTHROPIC_MODEL = "claude-sonnet-5"
 
+# Mode démo : poste un exemple avec un prospect fictif sur Discord, sans toucher à
+# l'API Meta. Utile pour montrer le rendu avant que le token Meta soit débloqué, ou
+# pour vérifier le rendu après un changement de prompt. Activé via DEMO_MODE=1.
+DEMO_MODE = os.environ.get("DEMO_MODE") == "1"
+
+DEMO_PROSPECT_ADS = [{
+    "page_name": "Nooks (EXEMPLE FICTIF)",
+    "page_id": "demo-0000",
+    "ad_creative_bodies": ["Nooks, the easiest way to organize your notes. Download free today."],
+    "ad_creative_link_captions": ["nooks-demo.app"],
+    "ad_snapshot_url": "https://www.facebook.com/ads/library/?id=0000000000",
+    "_media_type": "IMAGE",
+}]
+
 GRAPH_VERSION = "v21.0"
 AD_LIBRARY_URL = f"https://graph.facebook.com/{GRAPH_VERSION}/ads_archive"
 
@@ -255,24 +269,40 @@ Contexte business (à respecter strictement) :
 - Tanto Lab est une agence de production vidéo UGC (script, tournage, montage) \
 spécialisée dans les apps, produits web et SaaS early-stage (pre-seed à seed).
 - Deux personnes : Anton (créa : script, tournage, montage) et Thomas (prospection).
+- Tanto Lab est elle-même une jeune structure qui démarre, pas une grosse agence \
+établie. C'est un fait assumé, pas une excuse : ça justifie l'offre ci-dessous plutôt \
+que de rester caché ou de sonner comme une réduction bradée.
 - Process : 1) Brief (produit, audience, angle) 2) Script sur mesure, validé par le \
 client avant tournage 3) Tournage par un créateur vérifié + montage pro, livré prêt \
 à poster en pub.
-- Tarifs réels : 100$ la vidéo à l'unité. Pack de 4 vidéos/mois à 360$ (90$/vidéo, \
+- Tarifs standards : 100$ la vidéo à l'unité. Pack de 4 vidéos/mois à 360$ (90$/vidéo, \
 best value). Volume au-delà : sur devis.
+- OFFRE DE PROSPECTION À FROID (à utiliser dans l'email, remplace la simple mention \
+du tarif standard) : premier essai à prix coûtant, 100$, sans marge. Garantie : si la \
+vidéo n'obtient pas un meilleur CTR (click-through rate) que leur créa actuelle sur 2 \
+semaines, remboursement, sans discussion. La métrique de comparaison doit être le CTR, \
+explicitement nommé dans l'email, jamais un mot vague comme "outperform" ou "better \
+results" tout seul (le CTR se lit directement dans Meta Ads Manager côté prospect, et \
+se stabilise assez vite pour être fiable sur 2 semaines, contrairement au ROAS ou aux \
+conversions qui demandent plus de volume). En échange, Tanto Lab demande le droit de \
+partager les vrais résultats ensuite (chiffres, pas juste un avis). Cette offre existe \
+précisément parce que Tanto Lab n'a pas encore de case study à montrer, il faut le \
+dire simplement, sans s'excuser.
 - Cible : fondateur solo ou petite équipe, souvent technique, sans marketing interne, \
 budget serré. Il a peur de se faire arnaquer par une agence chère et générique.
 - Le prospect a été repéré parce qu'il tourne actuellement une pub Meta (donc il a \
 un budget ads) mais avec une créa faible : image statique, pas de vidéo, pas d'UGC.
 
-Structure obligatoire en 4 temps (contenu en français ici, sortie en anglais) :
+Structure obligatoire en 8 blocs (contenu en français ici, sortie en anglais) — CHAQUE \
+bloc numéroté ci-dessous correspond à UN paragraphe séparé par un saut de ligne double \
+dans le JSON final, jamais fusionné avec le bloc suivant :
 0. Une courte formule d'introduction avant l'accroche (ex : "Hey," ou "Hi,"), jamais \
-"Dear Sir/Madam" ni de formalisme excessif.
+"Dear Sir/Madam" ni de formalisme excessif. Son propre bloc, séparé de l'accroche.
 1. Accroche : la première vraie phrase capte l'attention en ciblant un problème précis \
 et concret ancré dans LEUR pub actuelle (pas une question générique de type "want to \
 double your sales?").
-2. Problème + valeur : nomme le vrai problème que révèle leur créa actuelle. Le type \
-de créa dominant (IMAGE, MEME ou MIX) t'est donné en amont du texte de la pub, adapte \
+2. Problème concret : nomme le vrai problème que révèle leur créa actuelle. Le type de \
+créa dominant (IMAGE, MEME ou MIX) t'est donné en amont du texte de la pub, adapte \
 l'angle du problème en conséquence, ne réutilise jamais le même angle pour les trois :
    - IMAGE : photo ou capture d'écran statique, rien ne bouge, impossible de montrer \
 le produit en action ni de créer de la confiance par une vraie personne qui l'utilise.
@@ -282,16 +312,35 @@ amateur sur ce type de produit précisément parce que le format vient d'ailleur
 mode) et ne parle pas de ce que fait vraiment le produit.
    - MIX : un mélange image et meme sans ligne directrice claire, signe d'une créa \
 qui se fait au coup par coup plutôt que testée et itérée.
-Puis explique en une ou deux phrases pourquoi l'UGC le résout. Un fait ou un chiffre \
-plutôt qu'une promesse vague.
-3. Preuve + simplicité : un élément concret qui rassure (le process en 3 étapes, un \
-détail sur comment ça marche), écrit simple, comme à l'oral, sans jargon. Le nom \
-"Tanto Lab" doit apparaître explicitement à ce moment-là ou dans la signature (jamais \
-"we" en intro anonyme, mais un lecteur doit pouvoir identifier clairement le nom de \
-l'agence en lisant l'email).
-4. Appel à l'action : une seule action claire et précise qui pousse à répondre à cet \
-email, jamais à proposer un call ou un rendez-vous. Jamais vague ("feel free to reach \
-out").
+Ce bloc reste sur le CONSTAT (ce qui cloche dans leur pub), sans encore expliquer \
+pourquoi l'UGC résout ça, ça vient dans le bloc suivant.
+3. Justification UGC : explique en une ou deux phrases pourquoi l'UGC résout le \
+problème du bloc 2, en t'appuyant sur ce FAIT VÉRIFIÉ (utilise-le tel quel ou \
+reformulé naturellement, ne l'utilise pas dans CHAQUE email pour ne pas être \
+répétitif, un email sur deux environ suffit) : selon une étude Nielsen ("Global Trust \
+in Advertising"), 92% des consommateurs font davantage confiance aux recommandations \
+de pairs et au bouche-à-oreille qu'à la publicité de marque classique, ce qui explique \
+pourquoi l'UGC convertit mieux qu'un visuel produit par la marque elle-même. N'invente \
+JAMAIS d'autre chiffre, d'autre étude, ou d'autre source. Si tu n'utilises pas ce \
+chiffre dans un email donné, reste sur une explication qualitative sans donnée \
+chiffrée inventée. Le mot "UGC" doit apparaître explicitement, en toutes lettres, \
+jamais remplacé par une paraphrase comme "real person content" ou "a real person \
+using the app".
+4. Présentation + offre : "I'm Thomas, I handle outreach for Tanto Lab." (ou variante \
+naturelle proche), puis une phrase indiquant que Tanto Lab crée des vidéos UGC faites \
+pour performer, puis le fait que Tanto Lab démarre encore, puis l'annonce du prix \
+(essai à prix coûtant, 100$, sans marge). PAS de détail sur le process (pas de mention \
+de script, de créateur, de tournage, de montage) : ça alourdit le mail, on saute \
+direct de la présentation à l'offre. S'arrête après le prix.
+5. Garantie : uniquement la garantie CTR (si la vidéo n'obtient pas un meilleur CTR \
+que leur créa actuelle sur 2 semaines, remboursement). Formule directe, sans ajouter \
+"no questions asked" ni formule de renforcement similaire, la garantie parle d'elle-même.
+6. Contrepartie : uniquement la demande en échange (le droit de partager les vrais \
+résultats ensuite). Bloc séparé de la garantie, jamais fusionné.
+7. Appel à l'action + signature : une seule action claire et précise qui pousse à \
+répondre à cet email pour dire s'ils veulent tenter l'offre, jamais à proposer un call \
+ou un rendez-vous, jamais vague ("feel free to reach out"). La signature ("Thomas, \
+Tanto Lab") suit, dans le même bloc ou son propre bloc.
 
 Ton et style (règles strictes, sans exception, appliquées au texte ANGLAIS généré) :
 - Direct, sans jargon d'agence ("boost your engagement with our 360 expertise")
@@ -320,6 +369,11 @@ a 10-min call"...). Le CTA pousse uniquement à répondre à l'email. Varie la f
 format donné les intéresse, proposer d'envoyer 2-3 exemples similaires en réponse, ou \
 demander une info précise sur leur projet. Une phrase, jamais plus.
 - Court : 110-150 mots pour le corps (intro incluse)
+- Format obligatoire du champ "body" : chacun des 8 blocs de la structure ci-dessus \
+(0, 1, 2, 3, 4, 5, 6, 7) est son propre paragraphe, séparé du suivant par un saut de \
+ligne double ("\\n\\n" dans le JSON), jamais fusionné avec un autre, jamais un pavé de \
+texte compact. Chaque bloc reste court (1-2 phrases), jamais un paragraphe de 3+ \
+phrases.
 
 Rappel : "subject" et "body" doivent être rédigés entièrement en anglais. Le champ \
 "problem" ci-dessous, lui, doit être écrit en FRANÇAIS (usage interne pour l'équipe).
@@ -389,7 +443,7 @@ MEDIA_TYPE_LABELS = {
 }
 
 
-def post_to_discord(prospects: list[tuple[str, list[dict], dict | None, str, str | None, str | None]]) -> None:
+def post_to_discord(prospects: list[tuple[str, list[dict], dict | None, str, str | None, str | None]], demo: bool = False) -> None:
     if not DISCORD_WEBHOOK_URL:
         print("ERREUR: DISCORD_WEBHOOK_URL manquant.", file=sys.stderr)
         sys.exit(1)
@@ -402,10 +456,15 @@ def post_to_discord(prospects: list[tuple[str, list[dict], dict | None, str, str
         requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=15)
         return
 
-    intro = {
-        "username": BOT_NAME,
-        "content": f"🎯 **{BOT_NAME} a trouvé {len(prospects)} nouveaux prospects aujourd'hui**",
-    }
+    if demo:
+        intro_text = (
+            f"🧪 **EXEMPLE — {BOT_NAME}** (mode démo, prospect fictif, pas une vraie pub trouvée)\n"
+            f"Ça montre à quoi ressemblera un vrai post une fois l'accès Meta débloqué."
+        )
+    else:
+        intro_text = f"🎯 **{BOT_NAME} a trouvé {len(prospects)} nouveaux prospects aujourd'hui**"
+
+    intro = {"username": BOT_NAME, "content": intro_text}
     requests.post(DISCORD_WEBHOOK_URL, json=intro, timeout=15)
 
     # Un message (embed) par prospect, avec l'email prêt à copier-coller
@@ -447,6 +506,17 @@ def post_to_discord(prospects: list[tuple[str, list[dict], dict | None, str, str
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    if DEMO_MODE:
+        print("DEMO_MODE actif : génération d'un exemple fictif, pas d'appel à l'API Meta.")
+        page_name = DEMO_PROSPECT_ADS[0]["page_name"]
+        ad_bodies = DEMO_PROSPECT_ADS[0]["ad_creative_bodies"]
+        media_type = "IMAGE"
+        website = guess_website(DEMO_PROSPECT_ADS)
+        email = draft_email(page_name, ad_bodies, media_type)
+        demo_prospects = [("demo-0000", DEMO_PROSPECT_ADS, email, media_type, website, None)]
+        post_to_discord(demo_prospects, demo=True)
+        return
+
     seen = load_seen()
     all_ads: list[dict] = []
 
