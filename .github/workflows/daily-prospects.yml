@@ -2,8 +2,8 @@ name: Daily prospect scan
 
 on:
   schedule:
-    # 7h00 heure de Paris (5h/6h UTC selon heure d'été/hiver) - ajuste si besoin
-    - cron: "0 6 * * *"
+    # 9h00 heure du Japon (UTC+9, pas de changement d'heure) = minuit UTC
+    - cron: "0 0 * * *"
   workflow_dispatch:
     inputs:
       demo:
@@ -31,6 +31,7 @@ jobs:
           META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
           DEMO_MODE: ${{ github.event.inputs.demo == 'true' && '1' || '0' }}
         run: python prospect_bot.py
 
