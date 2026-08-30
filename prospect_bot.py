@@ -52,8 +52,15 @@ DEMO_PROSPECT_ADS = [{
 GRAPH_VERSION = "v21.0"
 AD_LIBRARY_URL = f"https://graph.facebook.com/{GRAPH_VERSION}/ads_archive"
 
-# Mots-clés à surveiller. Ajuste selon vos ICP (SaaS, app, startup, etc.)
-SEARCH_TERMS = ["app", "SaaS", "startup"]
+# Mots-clés à surveiller. Élargi volontairement pour maximiser le nombre de
+# comptes scannés (plus de mots-clés = plus de pubs remontées par l'API) —
+# le filtrage qualité se fait ensuite via filter_small_advertisers /
+# filter_out_finance, pas ici. Ajuste au fil de l'eau selon ce qui convertit.
+SEARCH_TERMS = [
+    "app", "SaaS", "startup", "mobile app", "web app", "platform",
+    "dashboard", "tool", "software", "marketplace", "subscription",
+    "download the app", "sign up free", "try it free", "new app",
+]
 
 # Pays UE (là où l'API donne des données commerciales fiables)
 AD_REACHED_COUNTRIES = [
@@ -62,8 +69,9 @@ AD_REACHED_COUNTRIES = [
 ]
 
 # Un annonceur avec plus de X pubs actives sur la période = probablement
-# une boite qui a déjà une équipe growth/ads => on l'exclut.
-MAX_ACTIVE_ADS_PER_PAGE = 5
+# une boite qui a déjà une équipe growth/ads => on l'exclut. Relevé de 5 à 8
+# pour laisser passer plus de prospects sans perdre le signal "petit compte".
+MAX_ACTIVE_ADS_PER_PAGE = 8
 
 # On priorise les comptes qui ne tournent QUE de l'image ou du meme (pas de
 # vidéo du tout) comme signal de créa faible / pas d'UGC.

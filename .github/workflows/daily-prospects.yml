@@ -3,7 +3,7 @@ name: Daily prospect scan
 on:
   schedule:
     # 9h00 heure du Japon (UTC+9, pas de changement d'heure) = minuit UTC
-    - cron: "0 0 * * *"
+    - cron: "0 0,6,12 * * *"
   workflow_dispatch:
     inputs:
       demo:
