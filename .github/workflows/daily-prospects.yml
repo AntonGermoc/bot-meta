@@ -33,7 +33,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
           DEMO_MODE: ${{ github.event.inputs.demo == 'true' && '1' || '0' }}
-        run: python prospect_bot.py
+        run: python -u prospect_bot.py
 
       - name: Commit seen_pages.json
         run: |
