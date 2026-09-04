@@ -21,6 +21,16 @@ from pathlib import Path
 
 import requests
 
+# langdetect sert au filtre "anglais uniquement" (voir filter_non_english).
+# Import optionnel : si le paquet n'est pas installé (requirements.txt pas à
+# jour), on désactive juste ce filtre au lieu de planter tout le script.
+try:
+    from langdetect import DetectorFactory, LangDetectException, detect
+    DetectorFactory.seed = 0  # résultats déterministes entre les runs
+except ImportError:
+    detect = None
+    LangDetectException = Exception
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -151,6 +161,18 @@ MOBILE_APP_KEYWORDS = [
 ]
 
 
+# Certaines pubs affirment explicitement NE PAS être une app ("no app needed",
+# "sin apps", "sans application") - typiquement des objets connectés, stickers
+# NFC/QR, plaques d'immatriculation intelligentes, etc. Si un de ces signaux
+# négatifs apparaît, on exclut d'office, même si un mot-clé positif matchait
+# par ailleurs (ex: une pub qui dit "no app, just scan the QR code").
+NEGATIVE_MOBILE_APP_PHRASES = [
+    "no app needed", "no app required", "without an app", "without any app",
+    "sin apps", "sin app", "sans application", "sans app", "no download required",
+    "no download needed", "don't need an app", "do not need an app",
+]
+
+
 # Certaines pubs mentionnent WhatsApp/Messenger/Telegram uniquement comme canal
 # de contact ("Commandez sur WhatsApp", "DM us on Messenger"), sans aucun rapport
 # avec une app mobile du prospect lui-même (souvent des commerces locaux ou du
@@ -165,6 +187,35 @@ def build_prospect_text(page_name: str, ads: list[dict]) -> str:
         text += " " + " ".join(ad.get("ad_creative_bodies", [])).lower()
         text += " " + " ".join(ad.get("ad_creative_link_titles", [])).lower()
     return text
+
+
+def filter_non_english(grouped: dict[str, list[dict]]) -> dict[str, list[dict]]:
+    """Ne garde que les pubs dont le texte est détecté comme anglais. Étape
+    volontairement placée tôt (avant les autres filtres) : c'est un test local
+    rapide (pas d'appel API), donc ça évite de dépenser du travail de filtrage
+    et des appels Anthropic sur des pubs qu'on va de toute façon écarter.
+    Fail-open : texte vide, détection ambiguë, ou paquet absent -> on garde
+    plutôt que d'exclure sur un faux négatif technique."""
+    if detect is None:
+        print("  (langdetect non installé, filtre langue ignoré)")
+        return grouped
+    kept = {}
+    for page_id, ads in grouped.items():
+        page_name = ads[0].get("page_name", "")
+        text = build_prospect_text(page_name, ads).strip()
+        if not text:
+            kept[page_id] = ads
+            continue
+        try:
+            lang = detect(text)
+        except LangDetectException:
+            kept[page_id] = ads
+            continue
+        if lang != "en":
+            print(f"  Exclu (langue détectée: {lang}) : {page_name}")
+            continue
+        kept[page_id] = ads
+    return kept
 
 
 def matches_keywords(page_name: str, ads: list[dict], keywords: list[str]) -> bool:
@@ -294,6 +345,9 @@ def filter_non_mobile_apps(grouped: dict[str, list[dict]]) -> dict[str, list[dic
         text = build_prospect_text(page_name, ads)
         for noise in CONTACT_CHANNEL_NOISE:
             text = text.replace(noise, " ")
+        if any(neg in text for neg in NEGATIVE_MOBILE_APP_PHRASES):
+            print(f"  Exclu (annonce dit explicitement 'pas d'app') : {page_name}")
+            continue
         if not any(keyword in text for keyword in MOBILE_APP_KEYWORDS):
             print(f"  Exclu (pas de signal app mobile) : {page_name}")
             continue
@@ -345,6 +399,11 @@ JAMAIS comme preuve d'une app mobile. Ce sont des outils de messagerie tiers uti
 par n'importe quel commerce (restaurant, boutique...) pour prendre des commandes, ça \
 n'a aucun rapport avec le produit du prospect lui-même. Ignore complètement ces \
 mentions et base ta décision uniquement sur le reste du texte de la pub.
+
+ATTENTION - deuxième piège : si la pub affirme explicitement qu'AUCUNE app n'est \
+nécessaire ("no app needed", "sin apps", "sans application" - souvent un objet \
+connecté, sticker NFC/QR, dispositif physique), mets is_mobile_app à false sans \
+hésiter, même si d'autres mots du texte évoquent la tech ou le mobile.
 
 "product_name" est le nom du produit/app tel qu'il apparaît dans le texte de la pub \
 (pas le nom de la page Facebook, qui peut être un nom de personne si la pub tourne \
@@ -474,6 +533,9 @@ def main() -> None:
 
     grouped = group_by_page(all_ads)
     print(f"Total: {len(grouped)} pages annonceurs distinctes")
+
+    grouped = filter_non_english(grouped)
+    print(f"Après filtre langue (anglais uniquement): {len(grouped)}")
 
     grouped = filter_out_of_scope(grouped)
     print(f"Après exclusion finance/hors périmètre: {len(grouped)}")
