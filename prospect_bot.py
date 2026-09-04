@@ -55,7 +55,7 @@ AD_LIBRARY_URL = f"https://graph.facebook.com/{GRAPH_VERSION}/ads_archive"
 # Mots-clés à surveiller. Élargi volontairement pour maximiser le nombre de
 # comptes scannés (plus de mots-clés = plus de pubs remontées par l'API) —
 # le filtrage qualité se fait ensuite via filter_small_advertisers /
-# filter_out_finance, pas ici. Ajuste au fil de l'eau selon ce qui convertit.
+# filter_out_of_scope, pas ici. Ajuste au fil de l'eau selon ce qui convertit.
 SEARCH_TERMS = [
     "app", "SaaS", "startup", "mobile app", "web app", "platform",
     "dashboard", "tool", "software", "marketplace", "subscription",
@@ -105,6 +105,41 @@ FINANCE_KEYWORDS = [
     "payment", "paiement", "insurance", "assurance", "tax", "impôt", "pret",
     "prêt", "neobank", "néobanque",
 ]
+
+# Le ciblage par mot-clé large ("app", "tool", "platform"...) matche aussi
+# énormément de commerces/contenus qui n'ont rien d'une app ou d'un SaaS tech
+# (boutiques e-commerce, blogs bien-être, fermes de contenu romans, commerces
+# locaux...) simplement parce qu'ils réutilisent ces mots dans leur pub. On
+# exclut ces catégories hors périmètre pour ne garder que des vraies cibles
+# business/tech. Heuristique par mot-clé, imparfaite mais suffisante pour
+# éliminer le plus gros du bruit observé.
+OUT_OF_SCOPE_KEYWORDS = [
+    # e-commerce / mode / beauté
+    "store", "boutique", "clothing", "clothes", "fashion", "dress", "shoes",
+    "jewelry", "bijoux", "skincare", "cosmetic", "makeup", "beauty", "perfume",
+    "shop now", "collection",
+    # santé / bien-être / lifestyle personnel
+    "wellness", "yoga", "meditation", "therapy", "therapist", "massage",
+    "diet", "workout", "fitness coach", "nutrition", "blood pressure",
+    "cholesterol", "diabetes", "arthritis", "supplement", "vitamin", "peptide",
+    # contenu / divertissement / romans
+    "novel", "romance", "story", "storyline", "fiction", "reading app",
+    "comic", "manga",
+    # commerces locaux / services physiques
+    "restaurant", "ristorante", "trattoria", "hotel", "clinic", "clinique",
+    "veterinar", "pet care", "boat", "yacht", "auto export", "car export",
+    "real estate", "immobilier", "furniture", "decor", "cleaning", "laundry",
+    # rencontre / coaching perso
+    "dating", "relationship advisor", "life coach", "astrology", "horoscope",
+]
+
+
+def matches_keywords(page_name: str, ads: list[dict], keywords: list[str]) -> bool:
+    text = page_name.lower()
+    for ad in ads:
+        text += " " + " ".join(ad.get("ad_creative_bodies", [])).lower()
+        text += " " + " ".join(ad.get("ad_creative_link_titles", [])).lower()
+    return any(keyword in text for keyword in keywords)
 
 # Fichier qui garde la trace des pages déjà signalées, pour ne pas spammer
 # le même prospect tous les jours. Committé dans le repo par le workflow.
@@ -200,21 +235,17 @@ def filter_small_advertisers(grouped: dict[str, list[dict]]) -> dict[str, list[d
     }
 
 
-def is_finance_related(page_name: str, ads: list[dict]) -> bool:
-    """Exclut les apps finance/banque/crypto/investissement de la prospection."""
-    text = page_name.lower()
-    for ad in ads:
-        text += " " + " ".join(ad.get("ad_creative_bodies", [])).lower()
-        text += " " + " ".join(ad.get("ad_creative_link_titles", [])).lower()
-    return any(keyword in text for keyword in FINANCE_KEYWORDS)
-
-
-def filter_out_finance(grouped: dict[str, list[dict]]) -> dict[str, list[dict]]:
+def filter_out_of_scope(grouped: dict[str, list[dict]]) -> dict[str, list[dict]]:
+    """Exclut finance/banque/crypto ET les commerces/contenus hors périmètre
+    business/tech (mode, beauté, romans, commerces locaux, etc.)."""
     kept = {}
     for page_id, ads in grouped.items():
         page_name = ads[0].get("page_name", "")
-        if is_finance_related(page_name, ads):
+        if matches_keywords(page_name, ads, FINANCE_KEYWORDS):
             print(f"  Exclu (finance) : {page_name}")
+            continue
+        if matches_keywords(page_name, ads, OUT_OF_SCOPE_KEYWORDS):
+            print(f"  Exclu (hors périmètre business/tech) : {page_name}")
             continue
         kept[page_id] = ads
     return kept
@@ -523,53 +554,32 @@ def post_to_discord(prospects: list[tuple[str, list[dict], dict | None, str, str
     intro = {"username": BOT_NAME, "content": intro_text}
     requests.post(DISCORD_WEBHOOK_URL, json=intro, timeout=15)
 
-    # Un message (embed) par prospect, avec l'email prêt à copier-coller
+    # Un seul message texte simple par prospect (pas d'embed) : Nom / Site / Email / Message
     for page_id, ads, email, media_type, website, contact_email in prospects:
         page_name = ads[0].get("page_name", "?")
         snapshot = ads[0].get("ad_snapshot_url", "")
-        media_label = MEDIA_TYPE_LABELS.get(media_type, media_type)
 
-        fields = [
-            {"name": "Pubs actives", "value": f"{len(ads)} ({media_label})", "inline": True},
-            {"name": "Ad Library", "value": f"[Voir la pub]({snapshot})" if snapshot else "N/A", "inline": True},
-        ]
+        site_display = website or (f"(pas de site trouvé — pub : {snapshot})" if snapshot else "Non trouvé")
+        email_display = contact_email or "Non trouvé"
 
-        if contact_email:
-            fields.append({"name": "✅ Email trouvé", "value": f"\n{contact_email}", "inline": False})
-        elif website:
-            fields.append({"name": "🌐 Site web", "value": f"\n{website}", "inline": False})
-        else:
-            fields.append({"name": "🌐 Site web", "value": "\nNon trouvé", "inline": False})
-
-        if email:
-            fields.append({"name": "🔎 Problème détecté", "value": f"\n{email.get('problem', '?')[:1024]}", "inline": False})
-
-        embed = {
-            "title": page_name,
-            "color": 0x5865F2,
-            "fields": fields,
-        }
-        requests.post(DISCORD_WEBHOOK_URL, json={"username": BOT_NAME, "embeds": [embed]}, timeout=15)
-        time.sleep(1)  # éviter le rate limit du webhook Discord
-
-        # L'email part dans un message à part (texte brut, pas un embed) : les
-        # sauts de ligne y respirent bien mieux que dans un champ d'embed compact.
-        # Chaque titre (Subject / Body) est suivi d'une ligne vide avant son contenu.
         if email:
             subject = email.get("subject", "?")
             body = email.get("body", "?")
-            email_message = f"📧 **Subject**\n\n{subject}\n\n📧 **Body**\n\n{body}"
-            if len(email_message) > 1990:
-                email_message = email_message[:1980] + "\n…(coupé)"
-            requests.post(DISCORD_WEBHOOK_URL, json={"username": BOT_NAME, "content": email_message}, timeout=15)
-            time.sleep(1)
+            message_block = f"{subject}\n\n{body}"
         else:
-            requests.post(
-                DISCORD_WEBHOOK_URL,
-                json={"username": BOT_NAME, "content": "📧 Email non généré (ANTHROPIC_API_KEY manquant ou erreur, voir logs)."},
-                timeout=15,
-            )
-            time.sleep(1)
+            message_block = "(non généré — ANTHROPIC_API_KEY manquant ou erreur, voir logs)"
+
+        content = (
+            f"Nom: {page_name}\n"
+            f"Site: {site_display}\n"
+            f"Email: {email_display}\n\n"
+            f"Message:\n{message_block}"
+        )
+        if len(content) > 1990:
+            content = content[:1980] + "\n…(coupé)"
+
+        requests.post(DISCORD_WEBHOOK_URL, json={"username": BOT_NAME, "content": content}, timeout=15)
+        time.sleep(1)  # éviter le rate limit du webhook Discord
 
 
 # ---------------------------------------------------------------------------
@@ -601,8 +611,8 @@ def main() -> None:
     grouped = group_by_page(all_ads)
     print(f"Total: {len(grouped)} pages annonceurs distinctes")
 
-    grouped = filter_out_finance(grouped)
-    print(f"Après exclusion finance/banque/crypto: {len(grouped)}")
+    grouped = filter_out_of_scope(grouped)
+    print(f"Après exclusion finance/hors périmètre: {len(grouped)}")
 
     small = filter_small_advertisers(grouped)
     print(f"Après filtre 'petit compte' (<= {MAX_ACTIVE_ADS_PER_PAGE} pubs): {len(small)}")
