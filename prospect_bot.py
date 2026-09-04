@@ -81,7 +81,7 @@ MAX_ACTIVE_ADS_PER_PAGE = 8
 # établis qu'on filtre ensuite via MAX_ACTIVE_ADS_PER_PAGE).
 MAX_PAGES_PER_SEARCH = 5
 
-# Plafond du nombre de NOUVEAUX prospects enrichis (site + email + rédaction) et
+# Plafond du nombre de NOUVEAUX prospects enrichis (email + rédaction) et
 # postés sur Discord par run. Sans ça, un run peut remonter plusieurs milliers de
 # pages "petit compte" (≤ 8 pubs actives est un filtre large, pas rare du tout) et
 # spammer Discord de milliers de messages en une seule fois, en épuisant le crédit
@@ -272,58 +272,6 @@ def save_seen(seen: set[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Site web du prospect + email de contact
-# ---------------------------------------------------------------------------
-
-DOMAIN_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", re.I)
-MAILTO_RE = re.compile(r"mailto:([^\"'?\s]+)", re.I)
-EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
-
-# Domaines/motifs à ignorer : ce sont des adresses techniques, pas des contacts utiles
-EMAIL_BLOCKLIST_SUBSTRINGS = [
-    "example.com", "sentry.io", "wixpress.com", "godaddy", "yourdomain",
-    "domain.com", ".png", ".jpg", ".svg", "noreply", "no-reply",
-]
-
-
-def guess_website(ads: list[dict]) -> str | None:
-    """Meta ne donne pas d'URL de destination directe, mais le 'caption' du lien
-    affiche en général le domaine du site (ex: 'getloop.app'). Heuristique, pas
-    garantie à 100%."""
-    for ad in ads:
-        for caption in ad.get("ad_creative_link_captions", []):
-            candidate = caption.strip().lower().removeprefix("www.")
-            if DOMAIN_RE.match(candidate):
-                return f"https://{candidate}"
-    return None
-
-
-def find_email_on_website(url: str) -> str | None:
-    """Va chercher un email de contact sur la page d'accueil du site (et /contact
-    si rien trouvé). Best-effort : si le site bloque, timeout, ou ne liste pas
-    d'email publiquement, on renvoie simplement None."""
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; TantoLabBot/1.0)"}
-
-    for path in ("", "contact", "contact-us"):
-        try:
-            resp = requests.get(url.rstrip("/") + "/" + path, headers=headers, timeout=10)
-            if resp.status_code != 200:
-                continue
-            html = resp.text
-
-            candidates = MAILTO_RE.findall(html) or EMAIL_RE.findall(html)
-            for candidate in candidates:
-                candidate = candidate.strip().lower()
-                if any(bad in candidate for bad in EMAIL_BLOCKLIST_SUBSTRINGS):
-                    continue
-                return candidate
-        except requests.RequestException:
-            continue
-
-    return None
-
-
-# ---------------------------------------------------------------------------
 # Rédaction d'email personnalisé (API Anthropic)
 # ---------------------------------------------------------------------------
 
@@ -456,8 +404,13 @@ Rappel : "subject" et "body" doivent être rédigés entièrement en anglais. Le
 "problem" ci-dessous, lui, doit être écrit en FRANÇAIS (usage interne pour l'équipe).
 
 Réponds UNIQUEMENT avec un JSON de la forme :
-{"problem": "...", "subject": "...", "body": "..."}
-où "problem" est UNE seule phrase courte en français qui résume le problème créa \
+{"product_name": "...", "problem": "...", "subject": "...", "body": "..."}
+où "product_name" est le nom du produit/app/service tel qu'il apparaît dans le texte \
+de la pub (pas le nom de la page Facebook, qui peut être un nom de personne si la pub \
+tourne depuis un profil perso). Cherche un nom de marque/produit explicite dans le \
+texte de la pub fourni. Si aucun nom de produit clair n'apparaît dans le texte, mets \
+null pour ce champ plutôt que d'inventer un nom.
+"problem" est UNE seule phrase courte en français qui résume le problème créa \
 détecté chez ce prospect (le même problème que celui développé au point 2 de l'email, \
 condensé en une phrase factuelle, sans "je pense que" ni formule floue). Exemple : \
 "Meme unique recyclé sur 3 pubs, aucune preuve produit, aucune voix humaine."
@@ -523,13 +476,6 @@ def draft_email(page_name: str, ad_bodies: list[str], media_type: str) -> dict |
 BOT_NAME = "Celestin"
 
 
-MEDIA_TYPE_LABELS = {
-    "IMAGE": "image statique",
-    "MEME": "meme/template",
-    "MIX": "image + meme",
-}
-
-
 def post_to_discord(prospects: list[tuple[str, list[dict], dict | None, str, str | None, str | None]], demo: bool = False) -> None:
     if not DISCORD_WEBHOOK_URL:
         print("ERREUR: DISCORD_WEBHOOK_URL manquant.", file=sys.stderr)
@@ -554,25 +500,23 @@ def post_to_discord(prospects: list[tuple[str, list[dict], dict | None, str, str
     intro = {"username": BOT_NAME, "content": intro_text}
     requests.post(DISCORD_WEBHOOK_URL, json=intro, timeout=15)
 
-    # Un seul message texte simple par prospect (pas d'embed) : Nom / Site / Email / Message
+    # Un seul message texte simple par prospect (pas d'embed) : Nom / Ad / Message
     for page_id, ads, email, media_type, website, contact_email in prospects:
         page_name = ads[0].get("page_name", "?")
         snapshot = ads[0].get("ad_snapshot_url", "")
-
-        site_display = website or (f"(pas de site trouvé — pub : {snapshot})" if snapshot else "Non trouvé")
-        email_display = contact_email or "Non trouvé"
 
         if email:
             subject = email.get("subject", "?")
             body = email.get("body", "?")
             message_block = f"{subject}\n\n{body}"
+            display_name = email.get("product_name") or page_name
         else:
             message_block = "(non généré — ANTHROPIC_API_KEY manquant ou erreur, voir logs)"
+            display_name = page_name
 
         content = (
-            f"Nom: {page_name}\n"
-            f"Site: {site_display}\n"
-            f"Email: {email_display}\n\n"
+            f"Nom: {display_name}\n"
+            f"Ad: {snapshot or 'N/A'}\n\n"
             f"Message:\n{message_block}"
         )
         if len(content) > 1990:
@@ -592,9 +536,8 @@ def main() -> None:
         page_name = DEMO_PROSPECT_ADS[0]["page_name"]
         ad_bodies = DEMO_PROSPECT_ADS[0]["ad_creative_bodies"]
         media_type = "IMAGE"
-        website = guess_website(DEMO_PROSPECT_ADS)
         email = draft_email(page_name, ad_bodies, media_type)
-        demo_prospects = [("demo-0000", DEMO_PROSPECT_ADS, email, media_type, website, None)]
+        demo_prospects = [("demo-0000", DEMO_PROSPECT_ADS, email, media_type, None, None)]
         post_to_discord(demo_prospects, demo=True)
         return
 
@@ -630,16 +573,9 @@ def main() -> None:
         ad_bodies = [b for ad in ads for b in ad.get("ad_creative_bodies", [])]
         media_type = dominant_media_type(ads)
 
-        website = guess_website(ads)
-        contact_email = None
-        if website:
-            print(f"  Site trouvé pour '{page_name}': {website}, recherche d'email...")
-            contact_email = find_email_on_website(website)
-            print(f"  -> email {'trouvé' if contact_email else 'non trouvé'}")
-
         print(f"  Rédaction email pour '{page_name}' ({media_type})...")
         email = draft_email(page_name, ad_bodies, media_type)
-        new_prospects.append((page_id, ads, email, media_type, website, contact_email))
+        new_prospects.append((page_id, ads, email, media_type, None, None))
 
     post_to_discord(new_prospects)
 
