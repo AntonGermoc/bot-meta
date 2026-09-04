@@ -73,6 +73,14 @@ AD_REACHED_COUNTRIES = [
 # pour laisser passer plus de prospects sans perdre le signal "petit compte".
 MAX_ACTIVE_ADS_PER_PAGE = 8
 
+# Plafond de pages parcourues par recherche (100 résultats/page). Les mots-clés
+# larges ("app", "startup"...) peuvent matcher des milliers de pubs sur 14 pays UE ;
+# sans plafond, une seule recherche peut prendre 20-30 min à paginer entièrement.
+# 5 pages = 500 résultats, largement suffisant pour repérer des petits comptes
+# (les gros volumes de résultats sont de toute façon dominés par des annonceurs
+# établis qu'on filtre ensuite via MAX_ACTIVE_ADS_PER_PAGE).
+MAX_PAGES_PER_SEARCH = 5
+
 # On priorise les comptes qui ne tournent QUE de l'image ou du meme (pas de
 # vidéo du tout) comme signal de créa faible / pas d'UGC.
 TARGET_MEDIA_TYPES = ["IMAGE", "MEME"]
@@ -126,11 +134,12 @@ def fetch_ads(search_term: str, media_type: str) -> list[dict]:
         "access_token": META_ACCESS_TOKEN,
     }
 
-    results = []
+       results = []
     url = AD_LIBRARY_URL
     use_params = params
+    pages_fetched = 0
 
-    while url:
+    while url and pages_fetched < MAX_PAGES_PER_SEARCH:
         resp = requests.get(url, params=use_params, timeout=30)
 
         if resp.status_code == 429:
@@ -146,13 +155,16 @@ def fetch_ads(search_term: str, media_type: str) -> list[dict]:
         for ad in data.get("data", []):
             ad["_media_type"] = media_type  # tag pour l'adaptation du message
         results.extend(data.get("data", []))
+        pages_fetched += 1
 
         next_url = data.get("paging", {}).get("next")
         url = next_url
         use_params = None  # l'URL "next" contient déjà tous les params
 
-    return results
+    if url and pages_fetched >= MAX_PAGES_PER_SEARCH:
+        print(f"  (plafond de {MAX_PAGES_PER_SEARCH} pages atteint pour '{search_term}', reste ignoré)")
 
+    return results
 
 # ---------------------------------------------------------------------------
 # Filtrage
