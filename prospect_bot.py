@@ -134,7 +134,7 @@ def fetch_ads(search_term: str, media_type: str) -> list[dict]:
         "access_token": META_ACCESS_TOKEN,
     }
 
-       results = []
+   results = []
     url = AD_LIBRARY_URL
     use_params = params
     pages_fetched = 0
