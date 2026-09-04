@@ -610,6 +610,10 @@ def main() -> None:
     new_prospects_raw = [(pid, ads) for pid, ads in small.items() if pid not in seen]
     print(f"Nouveaux (jamais signalés): {len(new_prospects_raw)}")
 
+    if len(new_prospects_raw) > MAX_PROSPECTS_PER_RUN:
+        print(f"  -> plafonné à {MAX_PROSPECTS_PER_RUN} pour ce run, le reste sera traité au prochain passage")
+        new_prospects_raw = new_prospects_raw[:MAX_PROSPECTS_PER_RUN]
+
     new_prospects = []
     for page_id, ads in new_prospects_raw:
         page_name = ads[0].get("page_name", "?")
