@@ -81,6 +81,16 @@ MAX_ACTIVE_ADS_PER_PAGE = 8
 # établis qu'on filtre ensuite via MAX_ACTIVE_ADS_PER_PAGE).
 MAX_PAGES_PER_SEARCH = 5
 
+# Plafond du nombre de NOUVEAUX prospects enrichis (site + email + rédaction) et
+# postés sur Discord par run. Sans ça, un run peut remonter plusieurs milliers de
+# pages "petit compte" (≤ 8 pubs actives est un filtre large, pas rare du tout) et
+# spammer Discord de milliers de messages en une seule fois, en épuisant le crédit
+# API Anthropic au passage. Le fichier seen_pages.json garantit que les prospects
+# non traités ce run-ci ne sont jamais perdus : ils remontent au run suivant tant
+# qu'ils ne sont pas encore dans "seen". Avec 3 runs/jour, ça fait jusqu'à
+# 3 x MAX_PROSPECTS_PER_RUN prospects qualifiés traités par jour.
+MAX_PROSPECTS_PER_RUN = 15
+
 # On priorise les comptes qui ne tournent QUE de l'image ou du meme (pas de
 # vidéo du tout) comme signal de créa faible / pas d'UGC.
 TARGET_MEDIA_TYPES = ["IMAGE", "MEME"]
