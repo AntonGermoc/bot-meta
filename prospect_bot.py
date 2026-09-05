@@ -143,6 +143,29 @@ OUT_OF_SCOPE_KEYWORDS = [
     "dating", "relationship advisor", "life coach", "astrology", "horoscope",
 ]
 
+# Jeux mobiles : vertical complètement différente du persona Tanto Lab. Les
+# jeux mobiles ont une dynamique d'acquisition dominée par des UA agencies
+# spécialisées et du paid media à grande échelle, pas par des vidéos UGC
+# organiques façon "un créateur qui parle du produit". On les exclut par
+# catégorie, peu importe leur stade ou leur budget probable.
+MOBILE_GAME_KEYWORDS = [
+    "rpg", "idle game", "tower defense", "match-3", "match 3", "puzzle game",
+    "card game", "battle royale", "mmorpg", "gacha", "roguelike",
+    "trading card game", "tcg", "mobile game", "casual game", "arcade game",
+]
+
+# Apps qui exploitent le nom d'une franchise/marque connue sans lien officiel
+# apparent (souvent des jeux ou apps génériques produits en masse pour capter
+# le trafic de recherche autour d'un nom connu). Distinct de FINANCE/GAME :
+# même une app qui ne matche aucun autre filtre doit être exclue si elle
+# instrumentalise une marque tierce comme ça - jamais un vrai prospect
+# légitime pour une vidéo UGC, et risque juridique à démarcher en plus.
+KNOWN_FRANCHISE_KEYWORDS = [
+    "pokemon", "pokémon", "pkm:", "marvel", "star wars", "harry potter",
+    "disney", "mario", "sonic the hedgehog", "dragon ball", "naruto",
+    "one piece", "transformers", "hello kitty", "minecraft",
+]
+
 # Pubs "reward/cashback" : un modèle d'arnaque/media-buying très répandu sur
 # Meta Ads ("Get $15 on us", "Send to PayPal", "claim your reward"...). Ce
 # n'est jamais une vraie app early-stage qui a besoin de UGC organique - c'est
@@ -417,6 +440,12 @@ def filter_out_of_scope(grouped: dict[str, list[dict]]) -> dict[str, list[dict]]
         if matches_keywords(page_name, ads, OUT_OF_SCOPE_KEYWORDS):
             print(f"  Exclu (hors périmètre business/tech) : {page_name}")
             continue
+        if matches_keywords(page_name, ads, MOBILE_GAME_KEYWORDS):
+            print(f"  Exclu (jeu mobile, vertical hors cible) : {page_name}")
+            continue
+        if matches_keywords(page_name, ads, KNOWN_FRANCHISE_KEYWORDS):
+            print(f"  Exclu (exploite une franchise/marque connue) : {page_name}")
+            continue
         kept[page_id] = ads
     return kept
 
@@ -483,6 +512,12 @@ reward", "you won", carte cadeau, PayPal, etc.) : c'est un modèle de media-buyi
 classique, jamais une vraie app early-stage qui a besoin de UGC organique, même si l'app \
 sous-jacente semble légitime (ex: un compteur de pas) - c'est le TYPE DE PUB qui disqualifie, \
 pas le produit
+- Jeu mobile (RPG, puzzle, casino/slots, cartes à collectionner, idle game, etc.) : vertical \
+hors périmètre, l'acquisition des jeux mobiles passe par du paid media/UA à grande échelle, \
+pas par de la vidéo UGC organique
+- App qui exploite le nom d'une franchise/marque connue sans lien officiel apparent \
+(Pokémon, Marvel, Disney, Star Wars, etc.) - souvent un jeu ou une app générique produite \
+en masse pour capter le trafic de recherche autour du nom, jamais un vrai prospect légitime
 - Toute pub qui ressemble à un schéma pyramidal, une arnaque, ou une promesse de gain \
 irréaliste sans lien clair avec l'usage réel du produit
 
