@@ -143,6 +143,64 @@ OUT_OF_SCOPE_KEYWORDS = [
     "dating", "relationship advisor", "life coach", "astrology", "horoscope",
 ]
 
+# Pubs "reward/cashback" : un modèle d'arnaque/media-buying très répandu sur
+# Meta Ads ("Get $15 on us", "Send to PayPal", "claim your reward"...). Ce
+# n'est jamais une vraie app early-stage qui a besoin de UGC organique - c'est
+# déjà un funnel de performance marketing payant, avec souvent un compte
+# annonceur jetable derrière. On exclut peu importe la catégorie déclarée de
+# l'app, même si l'app sous-jacente (ex: un compteur de pas) est réelle.
+SCAM_REWARD_KEYWORDS = [
+    "on us!", "get $", "claim your reward", "claim your prize", "you're eligible",
+    "you have been selected", "congratulations you", "reward card", "cash reward",
+    "gift card reward", "send to paypal", "paypal reward", "$ reward",
+    "spin to win", "scratch to win", "you won", "free gift card",
+]
+
+# Apps de fiction interactive/lecture par chapitres (souvent à contenu adulte,
+# type ReelShort/DramaBox/GoodNovel). Le texte de pub réel évite parfois les
+# mots déjà présents dans OUT_OF_SCOPE_KEYWORDS ("story", "novel"...) en ne
+# parlant que de "chapters" - on comble ce trou spécifiquement.
+INTERACTIVE_FICTION_KEYWORDS = [
+    "more chapters", "next chapter", "unlock chapter", "read to unlock",
+    "chapters to read", "full story unlocked", "read the ending",
+]
+
+# Heuristique sur le NOM DE PAGE : les comptes de media buying/arnaque à la
+# chaîne utilisent presque toujours un nom généré (lettres + suite de chiffres,
+# ou mot générique + chiffres), jamais un vrai nom de marque. Une vraie startup
+# early-stage a un nom de produit, pas "Lh-0831-35" ou "MediaSaver0316". Cette
+# heuristique est un signal de MÉFIANCE supplémentaire, pas un rejet à elle
+# seule (voir filter_scam_and_adult) : elle se combine toujours avec au moins
+# un autre signal pour éviter de rejeter une vraie petite marque au nom insolite.
+_GENERIC_PAGE_NAME_RE = re.compile(
+    r"^[A-Za-z]{1,4}(-\d+){1,}$"     # "Lh-0831-35", "AB-1234"
+    r"|^[A-Za-z]+\d{3,}$"            # "MediaSaver0316"
+)
+
+
+def is_generic_page_name(page_name: str) -> bool:
+    return bool(_GENERIC_PAGE_NAME_RE.match(page_name.strip()))
+
+
+def filter_scam_and_adult(grouped: dict[str, list[dict]]) -> dict[str, list[dict]]:
+    """Exclut les arnaques reward/cashback et les apps de fiction interactive
+    qui passaient entre les mailles de filter_out_of_scope. Combine mots-clés
+    de contenu + heuristique de nom de page générique."""
+    kept = {}
+    for page_id, ads in grouped.items():
+        page_name = ads[0].get("page_name", "")
+        if matches_keywords(page_name, ads, SCAM_REWARD_KEYWORDS):
+            print(f"  Exclu (pub reward/cashback suspecte) : {page_name}")
+            continue
+        if matches_keywords(page_name, ads, INTERACTIVE_FICTION_KEYWORDS):
+            print(f"  Exclu (app de fiction interactive par chapitres) : {page_name}")
+            continue
+        if is_generic_page_name(page_name):
+            print(f"  Exclu (nom de page générique/suspect) : {page_name}")
+            continue
+        kept[page_id] = ads
+    return kept
+
 
 # On ne veut cibler QUE des apps mobiles installables (Android et/ou iOS), pas
 # des SaaS/sites web accessibles uniquement par navigateur. Pré-filtre rapide
@@ -383,7 +441,22 @@ CLASSIFY_SYSTEM_PROMPT = """Tu qualifies des prospects repérés via une pub Met
 (Facebook/Instagram) pour une agence de vidéos UGC ciblant des applications mobiles \
 early-stage (pre-seed à seed). Pour chaque prospect fourni, réponds UNIQUEMENT avec \
 un JSON de la forme :
-{"is_mobile_app": true/false, "product_name": "..."}
+{"is_mobile_app": true/false, "product_name": "...", "is_out_of_scope": true/false, "out_of_scope_reason": "..."}
+
+"is_out_of_scope" vaut true dans les cas suivants (mets false sinon) :
+- Contenu sexuel/suggestif explicite ou à connotation adulte (y compris les apps de \
+fiction/roman/manga/webtoon "par chapitres" qui utilisent souvent des visuels suggestifs \
+comme accroche, même si le texte de la pub reste vague sur le contenu réel)
+- Pub de type "reward"/"cashback"/gain d'argent facile ("get $X on us", "claim your \
+reward", "you won", carte cadeau, PayPal, etc.) : c'est un modèle de media-buying/arnaque \
+classique, jamais une vraie app early-stage qui a besoin de UGC organique, même si l'app \
+sous-jacente semble légitime (ex: un compteur de pas) - c'est le TYPE DE PUB qui disqualifie, \
+pas le produit
+- Toute pub qui ressemble à un schéma pyramidal, une arnaque, ou une promesse de gain \
+irréaliste sans lien clair avec l'usage réel du produit
+
+Si "is_out_of_scope" est true, remplis "out_of_scope_reason" avec une courte explication \
+(quelques mots). Sinon laisse-le vide ("").
 
 "is_mobile_app" vaut true UNIQUEMENT si le texte de la pub indique clairement qu'il \
 s'agit d'une application mobile installable sur smartphone (Android et/ou iOS) : \
@@ -540,6 +613,9 @@ def main() -> None:
     grouped = filter_out_of_scope(grouped)
     print(f"Après exclusion finance/hors périmètre: {len(grouped)}")
 
+    grouped = filter_scam_and_adult(grouped)
+    print(f"Après exclusion arnaques reward/contenu adulte (couche 1, mots-clés): {len(grouped)}")
+
     grouped = filter_non_mobile_apps(grouped)
     print(f"Après filtre app mobile (App Store/Google Play, couche 1): {len(grouped)}")
 
@@ -570,6 +646,12 @@ def main() -> None:
         # technique.
         if classification and classification.get("is_mobile_app") is False:
             print(f"  Exclu (Claude: pas une app mobile) : {page_name}")
+            excluded_not_mobile.append(page_id)
+            continue
+
+        if classification and classification.get("is_out_of_scope") is True:
+            reason = classification.get("out_of_scope_reason") or "non précisée"
+            print(f"  Exclu (Claude: hors périmètre - {reason}) : {page_name}")
             excluded_not_mobile.append(page_id)
             continue
 
