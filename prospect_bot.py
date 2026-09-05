@@ -154,6 +154,31 @@ SCAM_REWARD_KEYWORDS = [
     "you have been selected", "congratulations you", "reward card", "cash reward",
     "gift card reward", "send to paypal", "paypal reward", "$ reward",
     "spin to win", "scratch to win", "you won", "free gift card",
+    # Variantes qui évitent le mot "reward" mais suivent le même schéma
+    # ("perk" à la place, "just for installing/downloading" comme déclencheur) :
+    "welcome perk", "perk credit", "just for installing", "just for downloading",
+    "delivery via paypal", "welcome credit",
+]
+
+# Apps de "drama"/mini-séries par épisodes (type ReelShort/DramaBox), qui
+# évitent les mots déjà couverts par INTERACTIVE_FICTION_KEYWORDS ("chapters")
+# en parlant plutôt d'"episode" et de "characters unlocked".
+DRAMA_EPISODE_KEYWORDS = [
+    "full episode", "characters unlocked", "drama tv app", "watch movie for free",
+    "episode unlocked", "new episode", "watch full episode",
+]
+
+# Apps "all-in-one video/movie downloader" génériques : quasi jamais de vraies
+# startups early-stage, presque toujours des apps d'ad-arbitrage/zone grise
+# (souvent adossées à du contenu piraté), qui utilisent très fréquemment des
+# visuels suggestifs comme appât même quand le texte de la pub reste neutre
+# (le texte seul ne permet donc pas de détecter le problème réel - visuel).
+# On exclut par CATÉGORIE plutôt que d'essayer de détecter le contenu suggestif
+# du texte, qu'on ne peut pas voir de toute façon (le bot ne récupère pas les
+# images des pubs, seulement le texte).
+GENERIC_DOWNLOADER_KEYWORDS = [
+    "video downloader", "movie downloader", "all video downloader",
+    "save videos easily", "video and movie download",
 ]
 
 # Apps de fiction interactive/lecture par chapitres (souvent à contenu adulte,
@@ -194,6 +219,12 @@ def filter_scam_and_adult(grouped: dict[str, list[dict]]) -> dict[str, list[dict
             continue
         if matches_keywords(page_name, ads, INTERACTIVE_FICTION_KEYWORDS):
             print(f"  Exclu (app de fiction interactive par chapitres) : {page_name}")
+            continue
+        if matches_keywords(page_name, ads, DRAMA_EPISODE_KEYWORDS):
+            print(f"  Exclu (app de drama/mini-séries par épisodes) : {page_name}")
+            continue
+        if matches_keywords(page_name, ads, GENERIC_DOWNLOADER_KEYWORDS):
+            print(f"  Exclu (app video/movie downloader générique) : {page_name}")
             continue
         if is_generic_page_name(page_name):
             print(f"  Exclu (nom de page générique/suspect) : {page_name}")
