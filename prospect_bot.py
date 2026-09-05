@@ -166,6 +166,18 @@ KNOWN_FRANCHISE_KEYWORDS = [
     "one piece", "transformers", "hello kitty", "minecraft",
 ]
 
+# Grandes enseignes/multinationales déjà installées, revenues plusieurs fois
+# dans les logs malgré les autres filtres (leur pub du jour ne contenait pas
+# toujours un mot-clé e-commerce/hors-périmètre). Filtre rapide et gratuit
+# (avant l'appel Claude) en complément de la reconnaissance sémantique dans
+# CLASSIFY_SYSTEM_PROMPT, qui elle couvre les marques non listées ici.
+KNOWN_LARGE_BRANDS = [
+    "temu", "ikea", "mcdonald", "lidl", "peugeot", "samsung", "decathlon",
+    "zalando", "shein", "aliexpress", "alibaba.com", "carrefour", "auchan",
+    "media markt", "mediamarkt", "netto", "delhaize", "cortefiel",
+    "jd sports", "charles & keith", "el corte inglés", "el corte ingles",
+]
+
 # Pubs "reward/cashback" : un modèle d'arnaque/media-buying très répandu sur
 # Meta Ads ("Get $15 on us", "Send to PayPal", "claim your reward"...). Ce
 # n'est jamais une vraie app early-stage qui a besoin de UGC organique - c'est
@@ -446,6 +458,9 @@ def filter_out_of_scope(grouped: dict[str, list[dict]]) -> dict[str, list[dict]]
         if matches_keywords(page_name, ads, KNOWN_FRANCHISE_KEYWORDS):
             print(f"  Exclu (exploite une franchise/marque connue) : {page_name}")
             continue
+        if matches_keywords(page_name, ads, KNOWN_LARGE_BRANDS):
+            print(f"  Exclu (grande enseigne déjà établie) : {page_name}")
+            continue
         kept[page_id] = ads
     return kept
 
@@ -518,6 +533,13 @@ pas par de la vidéo UGC organique
 - App qui exploite le nom d'une franchise/marque connue sans lien officiel apparent \
 (Pokémon, Marvel, Disney, Star Wars, etc.) - souvent un jeu ou une app générique produite \
 en masse pour capter le trafic de recherche autour du nom, jamais un vrai prospect légitime
+- Marque ou entreprise déjà établie et connue de toi (grande enseigne, multinationale, \
+entreprise grand public déjà installée) - reconnais le nom de la marque lui-même à partir \
+de tes connaissances générales, INDÉPENDAMMENT de ce que dit le texte de la pub fourni. \
+Une entreprise comme Temu, IKEA, McDonald's, Peugeot, Samsung etc. n'est jamais un prospect \
+early-stage même si le texte de sa pub du jour ne contient aucun mot-clé suspect. Si le nom \
+de la page ("page_name" fourni) correspond à une marque que tu reconnais comme déjà établie \
+avant même de lire le texte de la pub, mets is_out_of_scope à true pour cette raison.
 - Toute pub qui ressemble à un schéma pyramidal, une arnaque, ou une promesse de gain \
 irréaliste sans lien clair avec l'usage réel du produit
 
