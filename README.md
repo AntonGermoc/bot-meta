@@ -4,6 +4,16 @@ Cherche quotidiennement des startups qui tournent des pubs Meta avec des
 créas faibles (image uniquement, peu de variantes = petit compte) et poste
 la liste sur Discord.
 
+**Scope volontairement restreint à des applications mobiles iOS et/ou
+Android** — jamais des SaaS/sites accessibles uniquement par navigateur.
+Ce filtre marche en deux couches : un pré-filtre par mots-clés (mention
+d'App Store, Google Play, "download the app"...) puis une confirmation par
+Claude qui lit le texte de la pub et tranche vraiment. Chaque message posté
+sur Discord ne contient que le nom du produit et le lien direct vers la pub
+sur l'Ad Library — jamais de site web ni d'email : ces champs n'existent
+plus dans le code (ils faisaient partie d'une ancienne version, voir plus
+bas).
+
 ## ⚠️ Limite à connaître
 
 L'API Ad Library de Meta ne donne des données fiables sur les **pubs
@@ -47,8 +57,9 @@ modifiable dans `prospect_bot.py`).
 |---|---|
 | `SEARCH_TERMS` | Mots-clés recherchés (`app`, `SaaS`, `startup`...) |
 | `AD_REACHED_COUNTRIES` | Pays UE ciblés |
-| `MAX_ACTIVE_ADS_PER_PAGE` | Seuil pour exclure les "gros comptes" (défaut: 5) |
-| `TARGET_MEDIA_TYPE` | `IMAGE` par défaut pour cibler les créas pauvres |
+| `MAX_ACTIVE_ADS_PER_PAGE` | Seuil pour exclure les "gros comptes" (défaut: 8) |
+| `TARGET_MEDIA_TYPES` | `["IMAGE", "MEME"]` par défaut pour cibler les créas pauvres — n'a aucun rapport avec le filtre iOS/Android, voir `MOBILE_APP_KEYWORDS` pour ça |
+| `MOBILE_APP_KEYWORDS` / `NEGATIVE_MOBILE_APP_PHRASES` | Pré-filtre (couche 1) qui ne garde que les pubs mentionnant un signal d'app mobile installable |
 
 ## Tester en local
 
@@ -61,12 +72,19 @@ python prospect_bot.py
 
 ## Limites connues à garder en tête
 
-- **Site web / email trouvé automatiquement**: le domaine est deviné à partir du
-  "caption" du lien affiché sous la pub (pas une vraie URL de destination, Meta ne
-  l'expose pas via l'API). Si un site est trouvé, le bot va chercher un email de
-  contact sur la page d'accueil et `/contact`. C'est du best-effort : beaucoup de
-  sites ne publient pas d'email, ou bloquent les requêtes automatiques. Quand rien
-  n'est trouvé, le lien du site (si connu) est affiché à la place, sinon "Non trouvé".
+- **Pas de site web ni d'email**: le bot ne fait plus aucune tentative pour deviner
+  un domaine ou scraper un email de contact (une ancienne version essayait, ce
+  n'est plus le cas). Le message Discord se limite au nom du produit et au lien
+  `ad_snapshot_url` fourni par Meta — si tu veux le site ou un contact, c'est la
+  pub elle-même (ouverte via ce lien) qu'il faut consulter à la main.
+
+- **Filtre "app mobile" imparfait par nature**: la couche 1 (mots-clés App
+  Store/Google Play) peut rater une vraie app qui ne mentionne aucun de ces
+  termes dans le texte de sa pub — elle serait exclue à tort avant même
+  d'atteindre Claude. La couche 2 (Claude) est plus fiable sur les cas
+  ambigus mais dépend de la qualité du texte de pub disponible. En pratique,
+  la quasi-totalité des pubs d'app contiennent un CTA de téléchargement
+  explicite, donc l'effet est marginal.
 
 - **Rate limit**: ~200 appels/heure côté Meta. Avec 3 mots-clés et une
   pagination raisonnable, largement suffisant pour un run quotidien.

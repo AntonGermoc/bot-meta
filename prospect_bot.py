@@ -103,6 +103,13 @@ MAX_PROSPECTS_PER_RUN = 15
 
 # On priorise les comptes qui ne tournent QUE de l'image ou du meme (pas de
 # vidéo du tout) comme signal de créa faible / pas d'UGC.
+# ATTENTION : ceci filtre le FORMAT de la créa (image vs vidéo), pas la
+# plateforme du produit (iOS/Android) — c'est un axe totalement différent
+# du filtre "app mobile uniquement" plus bas (MOBILE_APP_KEYWORDS +
+# classify_prospect). Effet de bord à garder en tête : une app qui ne
+# communique QUE via des pubs vidéo ne sera jamais remontée par ce bot,
+# peu importe qu'elle soit iOS/Android — ce n'est pas un bug du filtre
+# app mobile, c'est cette restriction de format qui l'exclut en amont.
 TARGET_MEDIA_TYPES = ["IMAGE", "MEME"]
 
 # Ne jamais démarcher les apps finance/banque/crypto/investissement (réglementation,
@@ -629,7 +636,7 @@ def classify_prospect(page_name: str, ad_bodies: list[str]) -> dict | None:
 BOT_NAME = "Celestin"
 
 
-def post_to_discord(prospects: list[tuple[str, list[dict], dict | None, str, str | None, str | None]], demo: bool = False) -> None:
+def post_to_discord(prospects: list[tuple[str, list[dict], dict | None, str]], demo: bool = False) -> None:
     if not DISCORD_WEBHOOK_URL:
         print("ERREUR: DISCORD_WEBHOOK_URL manquant.", file=sys.stderr)
         sys.exit(1)
@@ -653,8 +660,10 @@ def post_to_discord(prospects: list[tuple[str, list[dict], dict | None, str, str
     intro = {"username": BOT_NAME, "content": intro_text}
     requests.post(DISCORD_WEBHOOK_URL, json=intro, timeout=15)
 
-    # Un seul message texte simple par prospect (pas d'embed) : Nom / Ad
-    for page_id, ads, classification, media_type, website, contact_email in prospects:
+    # Un seul message texte simple par prospect (pas d'embed) : Nom / Ad.
+    # Volontairement rien d'autre : pas de site web, pas d'email, juste de
+    # quoi identifier le produit et ouvrir la pub sur l'Ad Library.
+    for page_id, ads, classification, media_type in prospects:
         page_name = ads[0].get("page_name", "?")
         snapshot = ads[0].get("ad_snapshot_url", "")
         display_name = (classification.get("product_name") if classification else None) or page_name
@@ -678,7 +687,7 @@ def main() -> None:
         ad_bodies = DEMO_PROSPECT_ADS[0]["ad_creative_bodies"]
         media_type = "IMAGE"
         classification = classify_prospect(page_name, ad_bodies)
-        demo_prospects = [("demo-0000", DEMO_PROSPECT_ADS, classification, media_type, None, None)]
+        demo_prospects = [("demo-0000", DEMO_PROSPECT_ADS, classification, media_type)]
         post_to_discord(demo_prospects, demo=True)
         return
 
@@ -743,14 +752,14 @@ def main() -> None:
             excluded_not_mobile.append(page_id)
             continue
 
-        new_prospects.append((page_id, ads, classification, media_type, None, None))
+        new_prospects.append((page_id, ads, classification, media_type))
 
     post_to_discord(new_prospects)
 
     # Les exclus couche 2 sont aussi marqués "seen" : sans ça, ils reviendraient
     # au run suivant et on repaierait un appel Anthropic pour re-confirmer la
     # même exclusion indéfiniment.
-    seen.update(pid for pid, _, _, _, _, _ in new_prospects)
+    seen.update(pid for pid, _, _, _ in new_prospects)
     seen.update(excluded_not_mobile)
     save_seen(seen)
 
